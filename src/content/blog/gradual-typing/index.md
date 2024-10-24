@@ -1,7 +1,7 @@
 ---
 title: Gradual Typing in Adelfa
 date: Oct 22, 2024
-description: Test
+description: Proving type safety in a gradual typing system with Adelfa
 ---
 
 
@@ -80,30 +80,31 @@ For a cast to occur between types, the types must be consistent. Consistency is
 shown through a $\sim$, so $\tau_{1} \sim \tau_{2}$ is a relation accepting
 two types. Here are all the rules for consistency as given in the paper:
 
--   CRefl
-    
-    ```math
-    \tau \sim \tau
-    ```
--   CUnr
-    
-    ```math
-    \tau \sim ?
-    ```
--   CUnl
-    
-    ```math
-    ? \sim \tau
-    ```
--   CFun
-    
-    ```math
-    \frac{
-        \sigma_{1} \sim \tau_{1} \quad \sigma_{2} \sim \tau_{2}
-    }{
-        \sigma_{1} \rightarrow \sigma_{2} \sim \tau_{1} \rightarrow \tau_{2}
-    }
-    ```
+
+```math
+{ 
+  \over
+  \tau \sim \tau
+}\mathit{CRefl}
+\qquad
+{
+  \over
+  \tau \sim ?
+}\mathit{CUnR}
+\qquad
+{
+  \over
+  ? \sim \tau
+}\mathit{CUnL}
+```
+
+```math
+{
+  \sigma_{1} \sim \tau_{1} \quad \sigma_{2} \sim \tau_{2}
+  \over
+  \sigma_{1} \rightarrow \sigma_{2} \sim \tau_{1} \rightarrow \tau_{2}
+}\mathit{CFun}
+```
 
 These can be encoded into Adelfa by first defining a consistency relation that
 accepts two types, then we will define each rule based on the input types. Any
@@ -116,9 +117,9 @@ consis-refl: {ty1 : ty} consis ty1 ty1.
 consis-dyn-r : {ty1 : ty} consis ty1 dyn.
 consis-dyn-l : {ty1 : ty} consis dyn ty1.
 consis-fun : {sigma1 : ty}{sigma2 : ty}
-              {tau1 : ty}{tau2 : ty}
-              {D1: consis sig1 tau1}
-              {D2: consis sig2 tau2}
+             {tau1 : ty}{tau2 : ty}
+             {D1: consis sig1 tau1}
+             {D2: consis sig2 tau2}
               consis (arr sig1 sig2) (arr tau1 tau2).
 ```
 
@@ -126,28 +127,24 @@ Now that we have the LF signature finished for the consistency relation, we can
 prove properties about it. Let's prove all the points mentioned in
 Proposition 1.
 
--   $\tau \sim \tau$: the relation is symmetric
+-   $\tau \sim \tau$: the relation is reflexive
 -   If $\sigma \sim \tau$ then $\tau \sim \sigma$: the relation is commutative.
 -   $\neg (\forall \tau_{1} \tau_{2} \tau_{3} . \tau_{1} \sim \tau_{2} \land
       \tau_{2} \sim \tau_{3} \longrightarrow \tau_{1} \sim \tau_{3})$: the relation
     is *not* transitive.
 
 
-### Symmetry
+### Reflexive
 
 This arises very naturally from our `consis-refl` rule. So naturally that to prove
 it is essentially unnecessary. Nevertheless, here is the proof.
 
 ```adelfa
-Theorem consis-symm : forall t1,
+Theorem prop-consis-refl : forall t1,
   {t1: ty} =>
   exists D1, {D1: consis t1 t1}.
-intros.
-exists consis-refl t1. search.
+intros. exists consis-refl t1. search.
 ```
-
-
-<a id="orgbeaf41e"></a>
 
 ## Commutativity
 
@@ -162,8 +159,7 @@ Theorem consis-comm : forall t1 t2 D1,
 induction on 1.
 intros.
 case H1.
-apply IH to H6.
-apply IH to H7.
+apply IH to H6. apply IH to H7. 
 exists consis-fun tau1 tau2 sig1 sig2 D2 D1. search.
 exists consis-dyn-l t1. search.
 exists consis-dyn-r t2. search.
@@ -214,88 +210,82 @@ We'll translate Figure 6's typing derivations for $\lambda^{\langle \tau
 any preconditions of the relation into some derivation necessary for the
 relation to hold.
 
--   Type System
+```math
+\boxed{\Gamma \vert \Sigma \vdash e : \tau}
+```
+
+```lf
+of : {t1: tm}{ty1 : ty} type.
+```
+
+```math
+{
+\Gamma (x \mapsto \sigma) \vert \Sigma \vdash e : \tau
+\over
+\Gamma \vert \Sigma \vdash \lambda x : \sigma . e : \sigma \rightarrow \tau
+  
+}\mathit{TLam}
+```
     
-    ```math
-    \Gamma \vert \Sigma \vdash e : \tau
-    ```
+```lf
+of-lam : {t1:{x:tm}tm}{ty1:ty}{ty2:ty}
+          {D:{x:tm}{D': of x ty1} of (t1 x) ty2}
+          of (lam ty1 ([x] t1 x)) (arr ty1 ty2).
+```
+
+```math
+{
+\Gamma \vert \Sigma \vdash e_{1} : \tau \rightarrow \tau^{\prime} \quad \Gamma \vert \Sigma \vdash e_2 : \tau
+\over
+\Gamma \vert \Sigma \vdash e_1 e_2 : \tau^{\prime}
+}\mathit{TApp}
+```
+
+```lf
+of-app : {t1: tm}{t2:tm}{ty1: ty}{ty2:ty}
+            {D1: of t1 (arr ty1 ty2)}
+            {D2: of t2 ty1}
+            of (app t1 t2) ty2.
+```
+```math
+{
+\Gamma \vert \Sigma \vdash e : \sigma \quad \sigma \sim \tau
+\over
+\Gamma \vert \Sigma \vdash \langle \tau \rangle e : \tau
+}\mathit{TCast}
+```
     
-    ```lf
-    of : {t1: tm}{ty1 : ty} type.
-    ```
--   TLam
-    
-    ```math
-    \frac{
-    \Gamma (x \mapsto \sigma) \vert \Sigma \vdash e : \tau
-    }{
-    \Gamma \vert \Sigma \vdash \lambda x : \sigma . e : \sigma \rightarrow \tau
-    }
-    ```
-    
-    ```lf
-    of-lam : {t1:{x:tm}tm}{ty1:ty}{ty2:ty}
-              {D:{x:tm}{D': of x ty1} of (t1 x) ty2}
-              of (lam ty1 ([x] t1 x)) (arr ty1 ty2).
-    ```
--   TApp
-    
-    ```math
-    \frac{
-    \Gamma \vert \Sigma \vdash e_{1} : \tau \rightarrow \tau^{\prime} \quad \Gamma \vert \Sigma \vdash e_2 : \tau
-    }{
-    \Gamma \vert \Sigma \vdash e_1 e_2 : \tau^{\prime}
-    }
-    ```
-    
-    ```lf
-    of-app : {t1: tm}{t2:tm}{ty1: ty}{ty2:ty}
-                {D1: of t1 (arr ty1 ty2)}
-                {D2: of t2 ty1}
-                of (app t1 t2) ty2.
-    ```
--   TCast
-    
-    ```math
-    \frac{
-    \Gamma \vert \Sigma \vdash e : \sigma \quad \sigma \sim \tau
-    }{
-    \Gamma \vert \Sigma \vdash \langle \tau \rangle e : \tau
-    }
-    ```
-    
-    ```lf
-    of-cast : {t1: tm}{ty1: ty}{ty2: ty}
-                {D1: of t1 ty2}
-                {D: consis ty1 ty2}
-                of (cast ty2 t1) ty2.
-    ```
+```lf
+of-cast : {t1: tm}{ty1: ty}{ty2: ty}
+            {D1: of t1 ty2}
+            {D: consis ty1 ty2}
+            of (cast ty2 t1) ty2.
+```
 
 In addition, the typing derivations listed in the paper, we have to add ones
 for the new terms `empty` and `z` that we've derived.
 
--   Empty
-    
-    ```math
-    \frac{}
-    {
-      \Gamma \vert \Sigma \vdash \langle \rangle : ()
-    }
-    ```
-    
-        of-empty : of empty unit.
--   z
-    
-    ```math
-    \frac{}
-    {
-      \Gamma \vert \Sigma \vdash 0 : \mathbb{N}
-    }
-    ```
-    
-    ```lf
-    of-z : of z nat.
-    ```
+```math
+{
+  \over
+  \Gamma \vert \Sigma \vdash \langle \rangle : ()
+}\mathit{TEmpty}
+```
+
+```lf
+of-empty : of empty unit.
+```
+
+```math
+{
+  \over
+  \Gamma \vert \Sigma \vdash 0 : \mathbb{N}
+}\mathit{TZero}
+```
+
+```lf
+of-z : of z nat.
+```
 
 
 ## Context Lemmas & Type Equality

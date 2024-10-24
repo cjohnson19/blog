@@ -5,7 +5,8 @@ import sitemap from "@astrojs/sitemap";
 import tailwind from "@astrojs/tailwind";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
-import { aws } from "sst/auth";
+import aws from "astro-sst";
+
 
 const plugins = {
   rehypePlugins: [rehypeKatex],
