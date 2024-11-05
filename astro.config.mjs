@@ -22,7 +22,7 @@ const lfGrammar = JSON.parse(
 );
 
 export default defineConfig({
-  output: "server",
+  output: "static",
   adapter: aws(),
   site: "https://chasej.dev",
   markdown: {
